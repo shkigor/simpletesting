@@ -1,15 +1,17 @@
 package ck.solo.simpletesting.controller;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.LinkedList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import ck.solo.simpletesting.helpers.Test;
+import ck.solo.simpletesting.helpers.TestPerformer;
 import ck.solo.simpletesting.model.Answer;
 import ck.solo.simpletesting.model.Question;
 import ck.solo.simpletesting.service.AnswerService;
@@ -37,7 +40,10 @@ public class AppController {
 	CommonService commonService;
 
 	@Autowired
-	private Environment environment;
+	TestPerformer testPerformer;
+
+	@Autowired
+	ApplicationContext ctx;
 
 	private static final Logger logger = LoggerFactory.getLogger(AppController.class);
 
@@ -133,14 +139,29 @@ public class AppController {
 
 		request.getSession().removeAttribute("listQuestions");
 		request.getSession().removeAttribute("listTestResults");
+
+		// список неотвеченных вопросов
+		LinkedList<Question> listQuestions = null;
+		// список пройденных вопросов/тестов
+		LinkedList<Test> listTestResults = null;
+		// HttpSession session = request.getSession();
+
+		if (listQuestions == null) {
+			listQuestions = new LinkedList<Question>(questionService.findAllQuestions());
+			listTestResults = new LinkedList<Test>();
+		}
+
+		// Запомнить список вопросов в сессии
+		request.getSession().setAttribute("listQuestions", listQuestions);
+		// Запомнить список ответов в сессии
+		request.getSession().setAttribute("listTestResults", listTestResults);
+
 		return "test";
 	}
 
 	/**
 	 * Метод возвращает очередной тестовый вопрос в формате JSON.
 	 * 
-	 * @param request
-	 *            HttpServletRequest
 	 * @param currentQuestionId
 	 *            id текущего вопроса
 	 * @param currentAnswerId
@@ -148,33 +169,16 @@ public class AppController {
 	 * @return объект Test в формате JSON
 	 */
 	@SuppressWarnings("unchecked")
-	@RequestMapping(value = { "/ajax" }, method = RequestMethod.POST)
+	@RequestMapping(value = { "/next" }, method = RequestMethod.POST)
 	@ResponseBody
-	public Test getNextTest(HttpServletRequest request, @RequestParam int currentQuestionId, @RequestParam int currentAnswerId) {
+	public Test controllerNextTest(HttpServletRequest request, HttpServletResponse response, @RequestParam int currentQuestionId, @RequestParam int currentAnswerId) {
 
-		logger.info("Метод -- getMyTest()" + " currentQuestionId = " + currentQuestionId + " currentAnswerId = " + currentAnswerId);
+		logger.info("Метод -- controllerNextTest()" + " currentQuestionId = " + currentQuestionId + " currentAnswerId = " + currentAnswerId);
 
-		int testQuestionTimer = Integer.valueOf(environment.getRequiredProperty("test.question.timer"));
-		int questionCountMin = Integer.valueOf(environment.getRequiredProperty("question.count.min"));
-		int questionCountMax = Integer.valueOf(environment.getRequiredProperty("question.count.max"));
+		Test test = null;
 
-		Test test = new Test();
-		// список неотвеченных вопросов
-		LinkedList<Question> listQuestions = null;
-		// список пройденных вопросов/тестов
-		LinkedList<Test> listTestResults = null;
-		HttpSession session = request.getSession();
-
-		// Если сессия не новая
-		if (!session.isNew()) {
-			listQuestions = (LinkedList<Question>) request.getSession().getAttribute("listQuestions");
-			listTestResults = (LinkedList<Test>) request.getSession().getAttribute("listTestResults");
-		}
-
-		if (listQuestions == null) {
-			listQuestions = new LinkedList<Question>(questionService.findAllQuestions());
-			listTestResults = new LinkedList<Test>();
-		}
+		LinkedList<Question> listQuestions = (LinkedList<Question>) request.getSession().getAttribute("listQuestions");
+		LinkedList<Test> listTestResults = (LinkedList<Test>) request.getSession().getAttribute("listTestResults");
 
 		// Запомнить ответ пользователя на последний вопрос
 		if (currentQuestionId != -1) {
@@ -183,17 +187,11 @@ public class AppController {
 
 		// Если еще есть вопросы в тесте
 		if (!listQuestions.isEmpty()) {
-			logger.info("listQuestions empty" + listQuestions);
+
 			// Взять первый вопрос из списка
 			Question testQuestion = listQuestions.getFirst();
-			// Сформировать для вопроса случайный список ответов
-			List<Answer> testAnswers = answerService.findCorrectAndRandomAnswers(testQuestion.getAnswer(), questionCountMin, questionCountMax);
 
-			// Создать новый тест (с вопросом, списком ответов и временем, которое дается на ответ)
-			// test = new Test(testQuestion, testAnswers, testQuestionTimer);
-			test.setTestQuestion(testQuestion);
-			test.setTestAnswers(testAnswers);
-			test.setTestQuestionTimer(testQuestionTimer);
+			test = testPerformer.nextTest(testQuestion);
 
 			// Удалить вопрос (он первый в списке) из списка неотвеченных вопросов
 			listQuestions.removeFirst();
@@ -210,7 +208,20 @@ public class AppController {
 			request.getSession().removeAttribute("listQuestions");
 		}
 
+		if (test == null) {
+			response.setCharacterEncoding("UTF-8");
+			response.setContentType("application/json");
+			try {
+				Writer writer = response.getWriter();
+				writer.write("null");
+				writer.close();
+				response.flushBuffer();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 		return test;
+
 	}
 
 }

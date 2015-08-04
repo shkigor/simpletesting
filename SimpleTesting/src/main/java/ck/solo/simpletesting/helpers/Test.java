@@ -3,9 +3,16 @@ package ck.solo.simpletesting.helpers;
 import java.io.Serializable;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+
 import ck.solo.simpletesting.model.Answer;
 import ck.solo.simpletesting.model.Question;
 
+@Component
+@Scope("prototype")
 public class Test implements Serializable {
 
 	private static final long serialVersionUID = 1L;
@@ -15,11 +22,14 @@ public class Test implements Serializable {
 	private Answer testAnswerResult;
 	private int testQuestionTimer;
 
-	public Test() {
+	private static final Logger logger = LoggerFactory.getLogger(Test.class);
 
+	public Test() {
+		logger.info("конструктор Test()");
 	}
 
 	public Test(Question testQuestion, List<Answer> testAnswers, int testQuestionTimer) {
+		logger.info("конструктор Test(Question testQuestion = " + testQuestion + ", List<Answer> testAnswers = " + testAnswers + ", int testQuestionTimer = " + testQuestionTimer + ")");
 		this.testQuestion = testQuestion;
 		this.testAnswers = testAnswers;
 		this.testQuestionTimer = testQuestionTimer;

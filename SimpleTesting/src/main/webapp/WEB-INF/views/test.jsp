@@ -26,7 +26,7 @@
 
 
 var testQuestionId;
-var prefix_ajax = '${pageContext.request.contextPath}/ajax';
+var prefix_ajax = '${pageContext.request.contextPath}/next';
 var prefix_answersresult = '${pageContext.request.contextPath}/answersresult';
 var question_timer=0;
 var timer=null;
@@ -66,7 +66,10 @@ var timer=null;
 	            async: true,
 	            success: function(result) {
 	            	
-	                if (result.testQuestion == null) {
+	            	console.log(result);
+	            	
+	                //if (result.testQuestion == null) {
+	                if (result == null) {	
 	                	window.location.href = prefix_answersresult;
 	                }
 	                
