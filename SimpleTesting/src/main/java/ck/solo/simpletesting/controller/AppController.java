@@ -11,7 +11,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,9 +40,6 @@ public class AppController {
 
 	@Autowired
 	TestPerformer testPerformer;
-
-	@Autowired
-	ApplicationContext ctx;
 
 	private static final Logger logger = LoggerFactory.getLogger(AppController.class);
 
@@ -137,19 +133,15 @@ public class AppController {
 	public String test(HttpServletRequest request) {
 		logger.info("Метод -- test().");
 
+		// удалить из сессии список неотвеченных вопросов
 		request.getSession().removeAttribute("listQuestions");
+		// удалить из сессии список пройденных вопросов/тестов
 		request.getSession().removeAttribute("listTestResults");
 
 		// список неотвеченных вопросов
-		LinkedList<Question> listQuestions = null;
+		LinkedList<Question> listQuestions = new LinkedList<Question>(questionService.findAllQuestions());
 		// список пройденных вопросов/тестов
-		LinkedList<Test> listTestResults = null;
-		// HttpSession session = request.getSession();
-
-		if (listQuestions == null) {
-			listQuestions = new LinkedList<Question>(questionService.findAllQuestions());
-			listTestResults = new LinkedList<Test>();
-		}
+		LinkedList<Test> listTestResults = new LinkedList<Test>();
 
 		// Запомнить список вопросов в сессии
 		request.getSession().setAttribute("listQuestions", listQuestions);
@@ -177,7 +169,9 @@ public class AppController {
 
 		Test test = null;
 
+		// Получить список вопросов из сессии
 		LinkedList<Question> listQuestions = (LinkedList<Question>) request.getSession().getAttribute("listQuestions");
+		// Получить список ответов из сессии
 		LinkedList<Test> listTestResults = (LinkedList<Test>) request.getSession().getAttribute("listTestResults");
 
 		// Запомнить ответ пользователя на последний вопрос
@@ -202,10 +196,6 @@ public class AppController {
 			listTestResults.add(test);
 			// Запомнить список в сессии
 			request.getSession().setAttribute("listTestResults", listTestResults);
-		} else {
-			// Если тестовых вопросов больше нет
-			// удалить из сессии список неотвеченных вопросов
-			request.getSession().removeAttribute("listQuestions");
 		}
 
 		if (test == null) {
